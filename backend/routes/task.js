@@ -1,74 +1,153 @@
-const express = require('express');
-const Task = require('../models/task');
-const { authenticate } = require('../middleware/auth');
+const router = require("express").Router();
+const task = require("../models/task");
+const User = require("../models/user");
+//create-task
+router.post("/create-task", async (req, res) =>{
+try{
+const { title, desc } = req.body;
+const {id} = req.headers
+const newTask = new task ({ title: title, desc: desc});
+const saveTask = await newTask.save();
+const taskId = saveTask._id;
+await User.findByIdAndUpdate(id, {$push: { tasks: taskId._id }});
+res.status(200).json({message:"task Created"})
+}
+catch (error){
+console.log(error);
+res.status(400).json({message: "server error"})
+}
 
-const router = express.Router();
-
-// Create a new task
-router.post('/', authenticate, async (req, res) => {
-  try {
-    const task = new Task({ ...req.body, userId: req.user._id });
-    await task.save();
-    res.status(201).send(task);
-  } catch (error) {
-    res.status(400).send({ error: error.message });
-  }
 });
 
-// Get all tasks (filter by status, dueDate)
-router.get('/', authenticate, async (req, res) => {
-  try {
-    const filters = { userId: req.user._id };
+router.get("/get-all-tasks", async (req,res) =>{
+try{
+const { id } = req.headers;
+const userData = await User.findById(id).populate({path: "tasks",
+    options: { sort: { createdAt: -1}}});
+res.status(200).json({data:userData})
+}
+catch(error){
+console.log(error);
+res.status(400).json({message: "erreur server"});
+}
 
-    if (req.query.status) {
-      filters.status = req.query.status;
+})
+//delete task
+
+router.delete("/delete-tasks/:id", async (req,res) =>{
+    try{
+    const { id } = req.params;
+    const userId= req.headers.id
+   await task.findbyIdAndDelete(id);
+await User.findByIdAndUpdate(userId,{$pull:{tasks: id}})
+    res.status(200).json({message:"task deleted"})
     }
-    if (req.query.dueDate) {
-      filters.dueDate = { $lte: new Date(req.query.dueDate) };
+    catch(error){
+    console.log(error);
+    res.status(400).json({message: "erreur server"});
     }
+    
+    })
 
-    const tasks = await Task.find(filters);
-    res.send(tasks);
-  } catch (error) {
-    res.status(500).send({ error: error.message });
-  }
-});
+    //update task
 
-// Get task by ID
-router.get('/:id', authenticate, async (req, res) => {
-  try {
-    const task = await Task.findOne({ _id: req.params.id, userId: req.user._id });
-    if (!task) return res.status(404).send({ error: 'Task not found' });
-    res.send(task);
-  } catch (error) {
-    res.status(500).send({ error: error.message });
-  }
-});
+    router.put("/update-tasks/:id", async (req,res) =>{
+        try{
+        const { id } = req.params;
+        const {title , desc} = req.params;
+        await task.findByIdAndUpdate(id,{ title: title, desc: desc})
+        res.status(200).json({message:"task updated"})
+        }
+        catch(error){
+        console.log(error);
+        res.status(400).json({message: "erreur server"});
+        }
+        
+        })
 
-// Update task
-router.patch('/:id', authenticate, async (req, res) => {
-  try {
-    const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id },
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!task) return res.status(404).send({ error: 'Task not found' });
-    res.send(task);
-  } catch (error) {
-    res.status(400).send({ error: error.message });
-  }
-});
+        //update important tasks
+        router.put("/update-imp-tasks/:id", async (req,res) =>{
+            try{
+            const { id } = req.params;
+           const TaskData = await task.findById(id)
+           const ImpTask = TaskData.important;
+            await task.findByIdAndUpdate(id,{ important : !ImpTask})
+            res.status(200).json({message:"task updated"})
+            }
+            catch(error){
+            console.log(error);
+            res.status(400).json({message: "erreur server"});
+            }
+            
+            })
 
-// Delete task
-router.delete('/:id', authenticate, async (req, res) => {
-  try {
-    const task = await Task.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
-    if (!task) return res.status(404).send({ error: 'Task not found' });
-    res.send({ message: 'Task deleted successfully' });
-  } catch (error) {
-    res.status(500).send({ error: error.message });
-  }
-});
+              //update complet  tasks
+        router.put("/update-completed-tasks/:id", async (req,res) =>{
+            try{
+            const { id } = req.params;
+           const TaskData = await task.findById(id)
+           const CompleteTask = TaskData.complited;
+            await task.findByIdAndUpdate(id,{ complited : !CompleteTaskTask})
+            res.status(200).json({message:"task updated"})
+            }
+            catch(error){
+            console.log(error);
+            res.status(400).json({message: "erreur server"});
+            }
+            
+            })
+
+            // get important tasks 
+
+            router.get("/get-imp-tasks", async (req,res) =>{
+                try{
+                const { id } = req.headers;
+                const Data = await User.findById(id).populate({path: "tasks",
+                    match:{important:true},
+                    options: { sort: { createdAt: -1}}});
+                    const ImpTaskData = Data.tasks
+                res.status(200).json({data:ImpTaskData})
+                }
+                catch(error){
+                console.log(error);
+                res.status(400).json({message: "erreur server"});
+                }
+                
+                })
+
+
+                //get completed task
+            router.get("/get-complete-tasks", async (req,res) =>{
+                try{
+                const { id } = req.headers;
+                const Data = await User.findById(id).populate({path: "tasks",
+                    match:{complited:true},
+                    options: { sort: { createdAt: -1}}});
+                    const ComTaskData = Data.tasks
+                res.status(200).json({data:ComTaskData})
+                }
+                catch(error){
+                console.log(error);
+                res.status(400).json({message: "erreur server"});
+                }
+                
+                })
+
+                     //get incompleted task
+            router.get("/get-incomplete-tasks", async (req,res) =>{
+                try{
+                const { id } = req.headers;
+                const Data = await User.findById(id).populate({path: "tasks",
+                    match:{complited:false},
+                    options: { sort: { createdAt: -1}}});
+                    const ComTaskData = Data.tasks
+                res.status(200).json({data:ComTaskData})
+                }
+                catch(error){
+                console.log(error);
+                res.status(400).json({message: "erreur server"});
+                }
+                
+                })
 
 module.exports = router;
