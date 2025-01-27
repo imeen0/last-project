@@ -1,26 +1,26 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-
-const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true, maxlength: 25 },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    validate: {
-      validator: (value) => value.includes('@.') && value.length > 3,
-      message: 'Invalid email format.',
+const mongoose = require("mongoose") ;
+const userScema = new mongoose.Schema({
+    username: {
+        type: String,
+               required:true,
+               unique: true,
     },
-  },
-  password: { type: String, required: true },
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
-}, { timestamps: true });
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+    },
+    password: {
+        type: String,
+        required: true,
+        unique: true,
+    },
+tasks: [
+   { type: mongoose.Types.ObjectId,
+    ref: "task",
+},
+],
 
-UserSchema.pre('save', async function (next) {
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 10);
-  }
-  next();
+
 });
-
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.model("user",userScema)
