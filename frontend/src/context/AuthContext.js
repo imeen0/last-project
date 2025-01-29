@@ -2,29 +2,24 @@ import React, { createContext, useState, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-// Create Auth Context
 const AuthContext = createContext();
 
-// AuthProvider Component
 export const AuthProvider = ({ children }) => {
-  // State to store the token and login status
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userToken, setUserToken] = useState(localStorage.getItem('token') || '');
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token')); // Check if token exists
 
-  // Login Function
   const login = async (email, password) => {
     try {
       const response = await axios.post('http://localhost:3000/auth/signin', { email, password });
-      setUserToken(response.data.token); // Set token in state
-      localStorage.setItem('token', response.data.token); // Save token in localStorage
-      setIsLoggedIn(true); // Update login status
+      setUserToken(response.data.token);
+      localStorage.setItem('token', response.data.token);
+      setIsLoggedIn(true);
       toast.success('Logged in successfully!');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Login failed');
     }
   };
 
-  // Register Function
   const register = async (username, email, password) => {
     try {
       await axios.post('http://localhost:3000/auth/signup', { username, email, password });
@@ -34,21 +29,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout Function
-  const logout = () => {
-    setUserToken(''); // Clear token in state
-    localStorage.removeItem('token'); // Remove token from localStorage
-    setIsLoggedIn(false); // Update login status
-    toast.success('Logged out successfully!');
-  };
-
-  // Provide context to children
   return (
-    <AuthContext.Provider value={{ isLoggedIn, userToken, login, register, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, register }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Custom Hook to use Auth Context
 export const useAuth = () => useContext(AuthContext);
