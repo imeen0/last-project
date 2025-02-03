@@ -1,68 +1,80 @@
-const router = require("express").Router();
-const task = require("../models/task");
+const express = require("express");
+const router = express.Router();
+const Task = require("../models/task");
 const User = require("../models/user");
-//create-task
-router.post("/create", async (req, res) =>{
-  console.log(req.body)
-try{
-const { title, desc } = req.body;
-const {id} = req.headers
-const newTask = new task ({ title: title, desc: desc});
-const saveTask = await newTask.save();
-const taskId = saveTask._id;
-await User.findByIdAndUpdate(id, {$push: { tasks: taskId._id }});
-res.status(200).json({message:"task Created"})
-}
-catch (error){
-console.log(error);
-res.status(400).json({message: "server error"})
-}
 
+// Create a task and assign it to a user
+router.post("/create", async (req, res) => {
+  try {
+    const { userId, title, desc, dueDate, important } = req.body;
+
+    // Validate user existence
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const newTask = new Task({ title, desc, dueDate, important });
+    const savedTask = await newTask.save();
+
+    // Assign task to user
+    user.tasks.push(savedTask._id);
+    await user.save();
+
+    res.status(201).json({ message: "Task created", task: savedTask });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
-router.get("/get", async (req,res) =>{
-try{
-const { id } = req.headers;
-const userData = await User.findById(id).populate({path: "tasks",
-    options: { sort: { createdAt: -1}}});
-res.status(200).json({data:userData})
-}
-catch(error){
-console.log(error);
-res.status(400).json({message: "erreur server"});
-}
+// Get all tasks for a user
+router.get("/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
 
-})
-//delete task
+    // Validate user existence
+    const user = await User.findById(userId).populate("tasks");
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-router.delete("/delete/:id", async (req,res) =>{
-    try{
-    const { id } = req.params;
-    const userId= req.headers.id
-   await task.findbyIdAndDelete(id);
-await User.findByIdAndUpdate(userId,{$pull:{tasks: id}})
-    res.status(200).json({message:"task deleted"})
-    }
-    catch(error){
-    console.log(error);
-    res.status(400).json({message: "erreur server"});
-    }
-    
-    })
+    res.status(200).json({ tasks: user.tasks });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
-    //update task
+// Update a task
+router.put("/update/:taskId", async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { title, desc, dueDate, important, status } = req.body;
 
-    router.put("/update/:id", async (req,res) =>{
-        try{
-        const { id } = req.params;
-        const {title , desc} = req.params;
-        await task.findByIdAndUpdate(id,{ title: title, desc: desc})
-        res.status(200).json({message:"task updated"})
-        }
-        catch(error){
-        console.log(error);
-        res.status(400).json({message: "erreur server"});
-        }
-        
-        })
+    const updatedTask = await Task.findByIdAndUpdate(taskId, { title, desc, dueDate, important, status }, { new: true });
+
+    if (!updatedTask) return res.status(404).json({ message: "Task not found" });
+
+    res.status(200).json({ message: "Task updated", task: updatedTask });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete a task and remove it from the user's list
+router.delete("/delete/:taskId", async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    const deletedTask = await Task.findByIdAndDelete(taskId);
+    if (!deletedTask) return res.status(404).json({ message: "Task not found" });
+
+    // Remove task reference from all users
+    await User.updateMany({ tasks: taskId }, { $pull: { tasks: taskId } });
+
+    res.status(200).json({ message: "Task deleted" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;
